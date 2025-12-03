@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     # Reddit Selenium Auth
     REDDIT_USERNAME: str = ""
     REDDIT_PASSWORD: str = ""
+    # Skip login and collect public posts only
+    REDDIT_COLLECT_WITHOUT_LOGIN: bool = False
 
     # Twitter API
     TWITTER_API_KEY: str = ""

@@ -20,8 +20,10 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting application...")
 
-    # Start background scheduler
-    start_scheduler()
+    if settings.SCHEDULER_ACTIVE:
+        logger.info("Scheduler is active.")
+        # Start background scheduler
+        start_scheduler()
 
     # Run initial data collection in a separate thread to not block startup
     collection_thread = threading.Thread(
@@ -32,7 +34,8 @@ async def lifespan(app: FastAPI):
 
     # Shutdown
     logger.info("Shutting down application...")
-    stop_scheduler()
+    if settings.SCHEDULER_ACTIVE:
+        stop_scheduler()
 
 
 app = FastAPI(

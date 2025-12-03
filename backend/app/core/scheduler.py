@@ -9,7 +9,7 @@ from app.collectors.reddit_selenium_collector import RedditSeleniumCollector
 from app.collectors.twitter_selenium_collector import TwitterSeleniumCollector
 from app.models.post import Post
 from app.models.event import Event
-from app.event_detection.keyword_spike import KeywordSpikeDetector
+from app.event_detection.lda_detector import LDADetector
 from app.core.config import settings
 from app.core.logging import get_logger
 
@@ -89,24 +89,24 @@ def collect_twitter_data():
 
 
 def detect_events():
-    """Scheduled task to detect events using keyword spikes."""
+    """Scheduled task to detect events using LDA topic modeling."""
     logger.info("="*60)
     logger.info("Starting scheduled event detection")
     db = SessionLocal()
 
     try:
-        # Detect events from last 24 hours
+        # Detect events from last 7 days (LDA needs more data)
         end_time = datetime.now(timezone.utc)
-        start_time = end_time - timedelta(hours=24)
+        start_time = end_time - timedelta(days=7)
 
         logger.info(
             f"Analyzing posts from {start_time.strftime('%Y-%m-%d %H:%M UTC')} to {end_time.strftime('%Y-%m-%d %H:%M UTC')}")
 
-        detector = KeywordSpikeDetector(db)
+        detector = LDADetector(db)
         events = detector.detect_events(start_time, end_time)
 
         logger.info(
-            f"Keyword spike detector found {len(events)} potential events")
+            f"LDA detector found {len(events)} potential events")
 
         # Save new events
         new_events = 0

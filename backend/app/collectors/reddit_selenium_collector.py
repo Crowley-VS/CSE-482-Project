@@ -278,10 +278,13 @@ class RedditSeleniumCollector:
             if not self.driver:
                 self._setup_driver()
 
-            if not self.is_authenticated:
+            if not self.is_authenticated and not settings.REDDIT_COLLECT_WITHOUT_LOGIN:
                 login_success = self.login()
                 if not login_success:
                     logger.warning("Continuing without authentication")
+            elif settings.REDDIT_COLLECT_WITHOUT_LOGIN:
+                logger.info(
+                    "Skipping login - collecting public posts only (REDDIT_COLLECT_WITHOUT_LOGIN=True)")
 
             url = f"https://www.reddit.com/r/{subreddit_name}/{sort_by}/"
             logger.info(f"Scraping r/{subreddit_name} - {sort_by}")
@@ -293,9 +296,13 @@ class RedditSeleniumCollector:
             # Scroll to load more posts
             posts_loaded = 0
             scroll_attempts = 0
-            max_scrolls = limit // 10 + 5  # Rough estimate
+            max_scrolls = limit * 2  # Allow sufficient scrolls to reach the target
+            stale_scroll_count = 0  # Track consecutive scrolls without new posts
+            max_stale_scrolls = 5  # Stop if no new posts after this many scrolls
 
-            while posts_loaded < limit and scroll_attempts < max_scrolls:
+            while posts_loaded < limit and scroll_attempts < max_scrolls and stale_scroll_count < max_stale_scrolls:
+                previous_count = posts_loaded
+
                 self.driver.execute_script(
                     "window.scrollTo(0, document.body.scrollHeight);")
                 time.sleep(2)
@@ -306,6 +313,16 @@ class RedditSeleniumCollector:
                     By.CSS_SELECTOR, "shreddit-post"
                 )
                 posts_loaded = len(post_elements)
+
+                # Check if we got new posts
+                if posts_loaded == previous_count:
+                    stale_scroll_count += 1
+                    logger.debug(
+                        f"No new posts after scroll {scroll_attempts} (stale count: {stale_scroll_count})")
+                else:
+                    stale_scroll_count = 0  # Reset if we found new posts
+                    logger.debug(
+                        f"Loaded {posts_loaded} posts after scroll {scroll_attempts}")
 
             logger.info(f"Found {posts_loaded} posts to scrape")
 
