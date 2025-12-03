@@ -9,6 +9,7 @@ Backend API for detecting and summarizing economic events from Reddit and Twitte
   - Keyword-based spike detection (temporal analysis)
   - BERTopic clustering
   - LDA topic modeling
+- **AI Summarization**: ChatGPT-powered event summaries with GPT-3.5 and GPT-4 support
 - **REST API**: FastAPI endpoints for data collection and event retrieval
 - **Scheduled Tasks**: Automatic periodic data collection and event detection
 - **PostgreSQL Storage**: Persistent storage of posts and detected events
@@ -87,6 +88,13 @@ API documentation available at `http://localhost:8000/docs`
 - `GET /api/v1/events/{event_id}/posts` - Get posts for an event
 - `GET /api/v1/events/trends/keywords` - Get keyword trends
 
+### Event Summarization (NEW)
+- `POST /api/v1/events/{event_id}/summary` - Generate ChatGPT summary for event
+- `POST /api/v1/events/summaries/batch` - Batch generate summaries
+- `GET /api/v1/events/{event_id}/summary` - Get event summary
+
+See [CHATGPT_SUMMARIES.md](CHATGPT_SUMMARIES.md) for detailed documentation.
+
 ## Project Structure
 
 ```
@@ -107,7 +115,8 @@ backend/
 │   ├── event_detection/    # Event detection algorithms
 │   │   ├── keyword_spike.py
 │   │   ├── bertopic_detector.py
-│   │   └── lda_detector.py
+│   │   ├── lda_detector.py
+│   │   └── chatgpt_summarizer.py  # NEW: ChatGPT summarization
 │   ├── models/             # Database models
 │   │   ├── post.py
 │   │   └── event.py
@@ -122,10 +131,18 @@ backend/
 Edit `.env` file to configure:
 - Database connection
 - API credentials (Reddit, Twitter)
+- **OpenAI API key** (for ChatGPT summaries)
 - Collection intervals
 - Economic keywords to track
 - Subreddits to monitor
 - Event detection thresholds
+
+### Setting up ChatGPT Summaries
+
+1. Get an OpenAI API key from https://platform.openai.com/api-keys
+2. Add to `.env`: `OPENAI_API_KEY=sk-your-api-key-here`
+3. Install OpenAI package: `poetry add openai`
+4. See [CHATGPT_SUMMARIES.md](CHATGPT_SUMMARIES.md) for usage
 
 ## Development
 

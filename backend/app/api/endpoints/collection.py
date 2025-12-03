@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.collectors.reddit_collector import RedditCollector
 from app.collectors.twitter_collector import TwitterCollector
 from app.models.post import Post
+from app.models.event import Event
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -17,7 +18,7 @@ router = APIRouter()
 def save_posts_to_db(posts: List[Dict[str, Any]], db: Session):
     """
     Save collected posts to database.
-    
+
     Args:
         posts: List of post dictionaries
         db: Database session
@@ -27,15 +28,16 @@ def save_posts_to_db(posts: List[Dict[str, Any]], db: Session):
         existing = db.query(Post).filter(
             Post.post_id == post_data['post_id']
         ).first()
-        
+
         if existing:
-            logger.debug(f"Post {post_data['post_id']} already exists, skipping")
+            logger.debug(
+                f"Post {post_data['post_id']} already exists, skipping")
             continue
-        
+
         # Create new post
         post = Post(**post_data)
         db.add(post)
-    
+
     db.commit()
     logger.info(f"Saved {len(posts)} new posts to database")
 
@@ -47,7 +49,7 @@ async def collect_reddit(
 ):
     """
     Collect posts from configured Reddit subreddits.
-    
+
     Runs in background to avoid timeout on large collections.
     """
     def collect_and_save():
@@ -58,9 +60,9 @@ async def collect_reddit(
             logger.info(f"Reddit collection complete: {len(posts)} posts")
         except Exception as e:
             logger.error(f"Error in Reddit collection: {e}")
-    
+
     background_tasks.add_task(collect_and_save)
-    
+
     return {
         "status": "started",
         "message": "Reddit collection started in background"
@@ -76,7 +78,7 @@ async def search_reddit(
 ):
     """
     Search Reddit for specific keywords.
-    
+
     Args:
         keywords: List of keywords to search
         subreddit: Subreddit to search in
@@ -86,7 +88,7 @@ async def search_reddit(
         collector = RedditCollector()
         posts = collector.search_keywords(subreddit, keywords, limit)
         save_posts_to_db(posts, db)
-        
+
         return {
             "status": "success",
             "subreddit": subreddit,
@@ -107,7 +109,7 @@ async def collect_twitter(
 ):
     """
     Collect tweets matching economic keywords.
-    
+
     Args:
         keywords: Keywords to search (uses config if None)
         hours_back: How many hours back to search
@@ -123,9 +125,9 @@ async def collect_twitter(
             logger.info(f"Twitter collection complete: {len(tweets)} tweets")
         except Exception as e:
             logger.error(f"Error in Twitter collection: {e}")
-    
+
     background_tasks.add_task(collect_and_save)
-    
+
     return {
         "status": "started",
         "message": "Twitter collection started in background",
@@ -147,21 +149,21 @@ async def collect_all_sources(
             reddit_collector = RedditCollector()
             reddit_posts = reddit_collector.collect_from_all_subreddits()
             save_posts_to_db(reddit_posts, db)
-            
+
             # Collect from Twitter
             twitter_collector = TwitterCollector()
             tweets = twitter_collector.collect_by_keywords()
             save_posts_to_db(tweets, db)
-            
+
             logger.info(
                 f"Collection complete: {len(reddit_posts)} Reddit posts, "
                 f"{len(tweets)} tweets"
             )
         except Exception as e:
             logger.error(f"Error in collection: {e}")
-    
+
     background_tasks.add_task(collect_all)
-    
+
     return {
         "status": "started",
         "message": "Collection from all sources started in background"
@@ -174,22 +176,25 @@ async def get_collection_stats(db: Session = Depends(get_db)):
     try:
         # Total posts
         total_posts = db.query(Post).count()
-        
+
         # By source
         reddit_count = db.query(Post).filter(Post.source == 'reddit').count()
         twitter_count = db.query(Post).filter(Post.source == 'twitter').count()
-        
+
         # Recent posts (last 24 hours)
-        recent_cutoff = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-        recent_posts = db.query(Post).filter(Post.created_at >= recent_cutoff).count()
-        
+        recent_cutoff = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0)
+        recent_posts = db.query(Post).filter(
+            Post.created_at >= recent_cutoff).count()
+
         # By subreddit
         subreddit_counts = {}
-        subreddits = db.query(Post.subreddit).filter(Post.subreddit.isnot(None)).distinct().all()
+        subreddits = db.query(Post.subreddit).filter(
+            Post.subreddit.isnot(None)).distinct().all()
         for (subreddit,) in subreddits:
             count = db.query(Post).filter(Post.subreddit == subreddit).count()
             subreddit_counts[subreddit] = count
-        
+
         return {
             "total_posts": total_posts,
             "reddit_posts": reddit_count,
@@ -199,4 +204,35 @@ async def get_collection_stats(db: Session = Depends(get_db)):
         }
     except Exception as e:
         logger.error(f"Error getting stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/purge")
+async def purge_database(db: Session = Depends(get_db)):
+    """
+    Purge all data from the database (posts and events).
+    WARNING: This will delete all collected data!
+    """
+    try:
+        # Delete all events
+        events_deleted = db.query(Event).delete()
+
+        # Delete all posts
+        posts_deleted = db.query(Post).delete()
+
+        db.commit()
+
+        logger.warning(
+            f"Database purged: {posts_deleted} posts and {events_deleted} events deleted"
+        )
+
+        return {
+            "status": "success",
+            "message": "Database purged successfully",
+            "posts_deleted": posts_deleted,
+            "events_deleted": events_deleted
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error purging database: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     # Subreddits
     SUBREDDITS: str = "Economics,WallStreetBets,Finance"
 
+    # OpenAI Configuration
+    OPENAI_API_KEY: str = ""
+
     # Event Detection
     SPIKE_THRESHOLD: float = 2.5  # Standard deviations
     TIME_WINDOW_HOURS: int = 24

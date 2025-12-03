@@ -293,62 +293,249 @@ class RedditSeleniumCollector:
             # Wait for posts to load
             time.sleep(3)
 
-            # Scroll to load more posts
-            posts_loaded = 0
+            # Scroll and extract posts incrementally
+            # Reddit uses virtual scrolling - it removes old posts from DOM as you scroll
+            # So we need to extract posts as we go, not at the end
+            posts = []
+            seen_post_ids = set()  # Track which posts we've already extracted
             scroll_attempts = 0
-            max_scrolls = limit * 2  # Allow sufficient scrolls to reach the target
+            max_scrolls = limit * 3  # Allow sufficient scrolls to reach the target
             stale_scroll_count = 0  # Track consecutive scrolls without new posts
-            max_stale_scrolls = 5  # Stop if no new posts after this many scrolls
+            max_stale_scrolls = 15
+            print(f"Scrolling to load up to {limit} posts...")
 
-            while posts_loaded < limit and scroll_attempts < max_scrolls and stale_scroll_count < max_stale_scrolls:
-                previous_count = posts_loaded
+            while len(posts) < limit and scroll_attempts < max_scrolls and stale_scroll_count < max_stale_scrolls:
+                print(
+                    f" Scroll {scroll_attempts + 1} | Posts collected: {len(posts)}/{limit} | Stale: {stale_scroll_count}/{max_stale_scrolls}", end='\r')
 
-                self.driver.execute_script(
-                    "window.scrollTo(0, document.body.scrollHeight);")
-                time.sleep(2)
-                scroll_attempts += 1
-
-                # Count loaded posts
+                # Get current posts in DOM
                 post_elements = self.driver.find_elements(
                     By.CSS_SELECTOR, "shreddit-post"
                 )
-                posts_loaded = len(post_elements)
 
-                # Check if we got new posts
-                if posts_loaded == previous_count:
-                    stale_scroll_count += 1
-                    logger.debug(
-                        f"No new posts after scroll {scroll_attempts} (stale count: {stale_scroll_count})")
+                # Debug: Check counts on first scroll
+                if scroll_attempts == 0:
+                    all_articles = self.driver.find_elements(
+                        By.TAG_NAME, "article")
+                    logger.info(
+                        f"Debug: Found {len(post_elements)} shreddit-post elements, {len(all_articles)} article elements")
+
+                # Extract data from posts we haven't seen yet
+                new_posts_this_scroll = 0
+                for post_element in post_elements:
+                    if len(posts) >= limit:
+                        break
+
+                    try:
+                        post_id = post_element.get_attribute("id")
+                        if post_id and post_id not in seen_post_ids:
+                            post_data = self._extract_post_data(
+                                post_element, subreddit_name)
+                            if post_data:
+                                posts.append(post_data)
+                                seen_post_ids.add(post_id)
+                                new_posts_this_scroll += 1
+                    except Exception as e:
+                        logger.warning(
+                            f"Error extracting post data during scroll: {e}")
+                        continue
+
+                # Log progress
+                if new_posts_this_scroll > 0:
+                    stale_scroll_count = 0
+                    logger.info(
+                        f"✓ Collected {len(posts)} posts total (+{new_posts_this_scroll} new from scroll {scroll_attempts + 1})")
                 else:
-                    stale_scroll_count = 0  # Reset if we found new posts
+                    stale_scroll_count += 1
+                    if scroll_attempts > 0 and scroll_attempts % 5 == 0:
+                        logger.info(
+                            f"Scroll {scroll_attempts + 1}: No new posts (stale: {stale_scroll_count}/{max_stale_scrolls}, total: {len(posts)})")
+
+                # Scroll to bottom
+                self.driver.execute_script(
+                    "window.scrollTo(0, document.body.scrollHeight);")
+
+                # Wait for Reddit to load content
+                time.sleep(3)
+                scroll_attempts += 1
+
+                # Try to trigger lazy loading if stuck
+                if stale_scroll_count > 0 and stale_scroll_count % 3 == 0:
                     logger.debug(
-                        f"Loaded {posts_loaded} posts after scroll {scroll_attempts}")
-
-            logger.info(f"Found {posts_loaded} posts to scrape")
-
-            # Extract post data
-            posts = []
-            post_elements = self.driver.find_elements(
-                By.CSS_SELECTOR, "shreddit-post"
-            )[:limit]
-
-            for post_element in post_elements:
-                try:
-                    post_data = self._extract_post_data(
-                        post_element, subreddit_name)
-                    if post_data:
-                        posts.append(post_data)
-                except Exception as e:
-                    logger.warning(f"Error extracting post data: {e}")
-                    continue
+                        "Attempting to trigger lazy loading by scrolling up...")
+                    self.driver.execute_script(
+                        "window.scrollTo(0, document.body.scrollHeight - 2000);")
+                    time.sleep(1.5)
+                    self.driver.execute_script(
+                        "window.scrollTo(0, document.body.scrollHeight);")
+                    time.sleep(2)
 
             logger.info(
-                f"Successfully scraped {len(posts)} posts from r/{subreddit_name}")
-            return posts
+                f"Finished scrolling - collected {len(posts)} posts from r/{subreddit_name}")
+
+            # Return the posts we collected
+            return posts[:limit]
 
         except Exception as e:
             logger.error(f"Error scraping subreddit r/{subreddit_name}: {e}")
             return []
+
+    def _extract_post_data(
+        self,
+        post_element,
+        subreddit_name: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Extract data from a post element.
+
+        Args:
+            post_element: Selenium WebElement for the post
+            subreddit_name: Name of the subreddit
+
+        Returns:
+            Dictionary with post data or None if extraction fails
+        """
+        try:
+            # Get post ID
+            post_id = post_element.get_attribute("id")
+
+            # Get title
+            title = post_element.get_attribute("post-title") or ""
+
+            # Get author
+            author = post_element.get_attribute("author") or "unknown"
+
+            # Get score (upvotes)
+            score_text = post_element.get_attribute("score") or "0"
+            score = self._parse_score(score_text)
+
+            # Get comment count
+            comment_text = post_element.get_attribute("comment-count") or "0"
+            num_comments = int(comment_text) if comment_text.isdigit() else 0
+
+            # Get permalink
+            permalink = post_element.get_attribute("content-href") or ""
+            if permalink and not permalink.startswith("http"):
+                permalink = f"https://www.reddit.com{permalink}"
+
+            # Get timestamp
+            created_timestamp = post_element.get_attribute("created-timestamp")
+            if created_timestamp:
+                try:
+                    # Try parsing as millisecond timestamp
+                    created_utc = datetime.fromtimestamp(
+                        int(created_timestamp) / 1000, tz=timezone.utc
+                    )
+                except (ValueError, TypeError):
+                    # If that fails, try parsing as ISO format string
+                    try:
+                        created_utc = datetime.fromisoformat(
+                            created_timestamp.replace('+0000', '+00:00')
+                        )
+                    except:
+                        created_utc = datetime.now(timezone.utc)
+            else:
+                created_utc = datetime.now(timezone.utc)
+
+            # Try to get post body/selftext
+            try:
+                body_element = post_element.find_element(
+                    By.CSS_SELECTOR, "[slot='text-body']"
+                )
+                selftext = body_element.text
+            except:
+                selftext = ""
+
+            return {
+                "post_id": post_id or f"selenium_{int(time.time() * 1000)}",
+                "title": title,
+                "text": selftext or title,  # Use selftext, fall back to title if empty
+                "author": author,
+                "score": score,
+                "num_comments": num_comments,
+                "created_at": created_utc,
+                "url": permalink,
+                "subreddit": subreddit_name,
+                "source": "reddit_selenium",
+                "collected_at": datetime.now(timezone.utc)
+            }
+
+        except Exception as e:
+            logger.warning(f"Error extracting post data: {e}")
+            return None
+
+    def _parse_score(self, score_text: str) -> int:
+        """Parse score text like '12.3k' to integer."""
+        try:
+            score_text = score_text.lower().strip()
+            if 'k' in score_text:
+                return int(float(score_text.replace('k', '')) * 1000)
+            elif 'm' in score_text:
+                return int(float(score_text.replace('m', '')) * 1000000)
+            else:
+                return int(float(score_text))
+        except:
+            return 0
+
+    def collect_from_multiple_subreddits(
+        self,
+        subreddit_names: List[str] = None,
+        limit_per_subreddit: int = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Collect posts from multiple subreddits using the same browser session.
+
+        Args:
+            subreddit_names: List of subreddit names (uses config if None)
+            limit_per_subreddit: Max posts per subreddit
+
+        Returns:
+            Combined list of posts from all subreddits
+        """
+        if subreddit_names is None:
+            subreddit_names = settings.SUBREDDITS
+
+        # Initialize driver and login once if not already done
+        if not self.driver:
+            self._setup_driver()
+
+        if not self.is_authenticated:
+            login_success = self.login()
+            if not login_success:
+                logger.warning(
+                    "Continuing without authentication - may have limited results")
+
+        all_posts = []
+
+        for subreddit_name in subreddit_names:
+            logger.info(
+                f"Collecting from r/{subreddit_name} (session maintained)")
+            posts = self.collect_from_subreddit(
+                subreddit_name,
+                limit=limit_per_subreddit
+            )
+            all_posts.extend(posts)
+            time.sleep(2)  # Be polite between requests
+
+        logger.info(
+            f"Collected {len(all_posts)} total posts from {len(subreddit_names)} subreddits")
+        return all_posts
+
+    def close(self):
+        """Close the WebDriver and cleanup."""
+        if self.driver:
+            self.driver.quit()
+            self.driver = None
+            self.is_authenticated = False
+            logger.info("WebDriver closed")
+
+    def __enter__(self):
+        """Context manager entry."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        self.close()
 
     def _extract_post_data(
         self,

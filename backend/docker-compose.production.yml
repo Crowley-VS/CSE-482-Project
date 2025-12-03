@@ -1,0 +1,64 @@
+# Docker Compose for Economic Event Detection Backend
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: economic_events_db
+    environment:
+      POSTGRES_DB: economic_events_db
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U user -d economic_events_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: economic_events_backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+
+    volumes:
+      - chrome_data:/app/chrome_data
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    networks:
+      - app-network
+
+    restart: unless-stopped
+    # For production, uncomment to add resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 4G
+    #     reservations:
+    #       cpus: '1'
+    #       memory: 2G
+
+volumes:
+  postgres_data:
+  chrome_data:
+
+
+networks:
+  app-network:
+    driver: bridge

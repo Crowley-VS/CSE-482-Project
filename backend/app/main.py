@@ -8,6 +8,7 @@ from app.api.routes import router
 from app.core.config import settings
 from app.core.scheduler import start_scheduler, stop_scheduler, run_initial_collection
 from app.core.logging import setup_logging, get_logger
+from app.db.session import init_db
 
 # Setup logging at module level so it's initialized when the app starts
 setup_logging()
@@ -20,15 +21,20 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting application...")
 
+    # Initialize database tables
+    logger.info("Initializing database...")
+    init_db()
+    logger.info("Database initialized successfully")
+
     if settings.SCHEDULER_ACTIVE:
         logger.info("Scheduler is active.")
         # Start background scheduler
         start_scheduler()
 
     # Run initial data collection in a separate thread to not block startup
-    collection_thread = threading.Thread(
-        target=run_initial_collection, daemon=True)
-    collection_thread.start()
+    # collection_thread = threading.Thread(
+    #    target=run_initial_collection, daemon=True)
+    # collection_thread.start()
 
     yield
 
