@@ -1,8 +1,8 @@
 """Data export and import endpoints for posts and events."""
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import Dict, Any
 from datetime import datetime
 
 from app.db.session import get_db
