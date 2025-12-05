@@ -12,7 +12,19 @@ function Dashboard() {
     const fetchEvents = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/v1/events/`);
+        // Determine which URL to call:
+        // - If REACT_APP_API_BASE is set at build time, use it.
+        // - If running on localhost (dev), use the relative proxy path so CRA dev server proxies to production.
+        // - Otherwise (deployed static site), call the full production URL.
+        const envBase = process.env.REACT_APP_API_BASE;
+        const fetchUrl = envBase
+          ? `${envBase.replace(/\/$/, '')}/api/v1/events/`
+          : (window.location.hostname === 'localhost'
+            ? '/api/v1/events/'
+            : 'https://cse-482-project-production.up.railway.app/api/v1/events/');
+
+        console.debug('Fetching events from', fetchUrl);
+        const response = await fetch(fetchUrl);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
