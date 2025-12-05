@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import './App.css';
 
-function Dashboard() {
+function Dashboard({ navigate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -59,7 +59,24 @@ function Dashboard() {
         {error && <div className="output-box">Error: {error}</div>}
 
         {!loading && !error && (
-          <pre className="output-box">{JSON.stringify(data, null, 2)}</pre>
+          <div className="events-grid">
+            {(data && data.events && data.events.length > 0) ? (
+              data.events.map((ev) => (
+                <div key={ev.id} className="event-card">
+                  <div className="event-header">
+                    <div className="event-id">ID: {ev.id}</div>
+                    <div className="event-name">{ev.event_name ?? ev.event_name}</div>
+                  </div>
+                  <div className="event-desc">{ev.description ?? ev.summary?.summary_text ?? ''}</div>
+                  <div className="event-actions">
+                    <button className="view-btn" onClick={() => navigate(`/events/${ev.id}`)}>View Details</button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="no-events">No events detected.</div>
+            )}
+          </div>
         )}
       </div>
     </div>
