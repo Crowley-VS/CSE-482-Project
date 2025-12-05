@@ -53,7 +53,7 @@ function Dashboard({ navigate }) {
   return (
     <div className="dashboard-container">
       <div className="dashboard-content">
-        <h1>Detected Event Clusters</h1>
+        <h1>Economic Event Detection from Reddit and Twitter</h1>
 
         {loading && <div className="output-box">Loading…</div>}
         {error && <div className="output-box">Error: {error}</div>}
