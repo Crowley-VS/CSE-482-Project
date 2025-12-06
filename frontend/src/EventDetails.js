@@ -8,8 +8,10 @@ function resolveFetchUrl(path) {
   return `https://cse-482-project-production.up.railway.app${path}`;
 }
 
+
 export default function EventDetails({ eventId, navigate }) {
-  const [data, setData] = useState(null);
+  const [postsData, setPostsData] = useState(null);
+  const [eventData, setEventData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -17,35 +19,53 @@ export default function EventDetails({ eventId, navigate }) {
     if (!eventId) return;
     let mounted = true;
 
-    const fetchPosts = async () => {
+    const fetchAll = async () => {
       try {
         setLoading(true);
-        const url = resolveFetchUrl(`/api/v1/events/${eventId}/posts/`);
-        console.debug('Fetching event posts from', url);
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const json = await res.json();
+        // Fetch event details (for summary)
+        const eventUrl = resolveFetchUrl(`/api/v1/events/${eventId}`);
+        const postsUrl = resolveFetchUrl(`/api/v1/events/${eventId}/posts/`);
+        const [eventRes, postsRes] = await Promise.all([
+          fetch(eventUrl),
+          fetch(postsUrl)
+        ]);
+        if (!eventRes.ok) throw new Error(`Event fetch error: ${eventRes.status}`);
+        if (!postsRes.ok) throw new Error(`Posts fetch error: ${postsRes.status}`);
+        const eventJson = await eventRes.json();
+        const postsJson = await postsRes.json();
         if (!mounted) return;
-        setData(json);
+        setEventData(eventJson);
+        setPostsData(postsJson);
         setError(null);
       } catch (err) {
         if (!mounted) return;
-        setError(err instanceof Error ? err.message : 'Failed to fetch event posts');
-        setData(null);
+        setError(err instanceof Error ? err.message : 'Failed to fetch event/posts');
+        setEventData(null);
+        setPostsData(null);
       } finally {
         if (!mounted) return;
         setLoading(false);
       }
     };
 
-    fetchPosts();
+    fetchAll();
     return () => { mounted = false; };
   }, [eventId]);
+
+  let summaryText = '';
+  if (eventData && eventData.summary && eventData.summary.summary_text) {
+    summaryText = eventData.summary.summary_text;
+  }
 
   return (
     <div className="dashboard-container">
       <div className="dashboard-content">
         <h1>Event {eventId} Associated Posts</h1>
+        {summaryText && (
+          <div className="output-box" style={{ marginBottom: 16, background: '#e3f0ff', color: '#1a237e', fontWeight: 500 }}>
+            <strong>Summary:</strong> {summaryText}
+          </div>
+        )}
         <div style={{ marginBottom: 12 }}>
           <button className="back-btn" onClick={() => navigate('/')}>Back to events</button>
         </div>
@@ -54,8 +74,8 @@ export default function EventDetails({ eventId, navigate }) {
         {error && <div className="output-box">Error: {error}</div>}
         {!loading && !error && (
           <div className="posts-list">
-            {data && data.posts && data.posts.length > 0 ? (
-              data.posts.map((p) => (
+            {postsData && postsData.posts && postsData.posts.length > 0 ? (
+              postsData.posts.map((p) => (
                 <article key={p.id} className="post-card">
                   <h2 className="post-title">{p.title || (p.text ? p.text.slice(0, 80) + '…' : `Post ${p.id}`)}</h2>
                   <div className="post-meta">
