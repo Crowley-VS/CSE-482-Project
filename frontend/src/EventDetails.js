@@ -57,10 +57,20 @@ export default function EventDetails({ eventId, navigate }) {
     summaryText = eventData.summary.summary_text;
   }
 
+  // Format keywords for heading, capitalized and on new line
+  let keywordsLine = null;
+  if (eventData && Array.isArray(eventData.keywords) && eventData.keywords.length > 0) {
+    const capWords = eventData.keywords.map(w => w.charAt(0).toUpperCase() + w.slice(1));
+    keywordsLine = <div style={{fontSize: '1.1em', margin: '8px 0 16px 0', fontWeight: 500}}><strong>(
+      {capWords.join(', ')}
+    )</strong></div>;
+  }
+
   return (
     <div className="dashboard-container">
       <div className="dashboard-content">
-        <h1>Event {eventId} Associated Posts</h1>
+        <h1>Event {eventId} Associated Posts:</h1>
+        {keywordsLine}
         {summaryText && (
           <div className="output-box" style={{ marginBottom: 16, background: '#e3f0ff', color: '#1a237e', fontWeight: 500 }}>
             <strong>Summary:</strong> {summaryText}
