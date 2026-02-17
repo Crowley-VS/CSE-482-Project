@@ -1,23 +1,33 @@
-import logo from './logo.svg';
+import React, { useEffect, useState, useCallback } from 'react';
 import './App.css';
+import Dashboard from './Dashboard';
+import EventDetails from './EventDetails';
 
 function App() {
+  const [path, setPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname);
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const navigate = useCallback((to) => {
+    if (to === path) return;
+    window.history.pushState({}, '', to);
+    setPath(to);
+  }, [path]);
+
+  // simple routing: / -> dashboard, /events/:id -> details
+  if (path.startsWith('/events/')) {
+    const parts = path.split('/');
+    const id = parts[2] || null;
+    return <EventDetails eventId={id} navigate={navigate} />;
+  }
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Event Detector for Economic News!
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <Dashboard navigate={navigate} />
     </div>
   );
 }
