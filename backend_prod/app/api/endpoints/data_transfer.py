@@ -194,9 +194,14 @@ async def import_data(
         if 'events' in data:
             for event_data in data['events']:
                 try:
-                    # Check if event already exists (by event_name and time range)
+                    # Check if event already exists by ID first, then by event_name and time range
                     existing_event = None
-                    if event_data.get('event_name') and event_data.get('event_start'):
+                    if event_data.get('id'):
+                        existing_event = db.query(Event).filter(
+                            Event.id == event_data['id']
+                        ).first()
+
+                    if not existing_event and event_data.get('event_name') and event_data.get('event_start'):
                         existing_event = db.query(Event).filter(
                             Event.event_name == event_data['event_name'],
                             Event.event_start == datetime.fromisoformat(
@@ -221,9 +226,9 @@ async def import_data(
                             events_skipped += 1
                             continue
                     else:
-                        # Create new event
+                        # Create new event, preserving the original ID if provided
                         event_dict = {k: v for k, v in event_data.items() if k not in [
-                            'id', 'detected_at', 'updated_at']}
+                            'detected_at', 'updated_at']}
 
                         # Convert datetime strings to datetime objects
                         if event_dict.get('event_start'):

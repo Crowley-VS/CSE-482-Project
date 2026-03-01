@@ -36,3 +36,169 @@
     transform: rotate(360deg);
   }
 }
+
+/* Dashboard styles */
+.dashboard-container {
+  background-color: #add8e6;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.dashboard-content {
+  text-align: center;
+  width: 100%;
+  max-width: 600px;
+}
+
+.dashboard-content h1 {
+  color: #000;
+  margin: 0 0 24px 0;
+  font-size: 28px;
+}
+
+.output-box {
+  background-color: #4682b4;
+  color: #000;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+  font-family: Menlo, Monaco, 'Courier New', monospace;
+  /* allow the page to scroll naturally instead of inner scroll */
+  max-height: none;
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Events grid */
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.event-card {
+  background: #e6f2fb;
+  border-radius: 10px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 120px;
+}
+
+.event-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.event-id {
+  font-weight: 700;
+}
+
+.event-name {
+  font-size: 16px;
+}
+
+.event-desc {
+  margin-top: 8px;
+  color: #123;
+  font-size: 13px;
+  flex: 1 1 auto;
+}
+
+.event-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.view-btn, .back-btn {
+  background: #2b6cb0;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.view-btn:hover, .back-btn:hover {
+  background: #234e7a;
+}
+
+/* Posts list and cards */
+.posts-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* allow page-level scrolling for smoother experience */
+  max-height: none;
+  overflow: visible;
+  padding-right: 6px;
+}
+
+.post-card {
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 1px 4px rgba(16,24,40,0.04);
+}
+
+/* Smooth page scrolling and nicer scrollbars */
+html, body, #root {
+  height: auto;
+  scroll-behavior: smooth;
+}
+
+/* Webkit scrollbar styling */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.04);
+  border-radius: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.12);
+  border-radius: 8px;
+}
+
+/* Firefox thin scrollbar */
+* { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,0.12) rgba(0,0,0,0.04); }
+
+.post-title {
+  margin: 0 0 8px 0;
+  font-size: 16px;
+  color: #0b2540;
+}
+
+.post-meta {
+  font-size: 12px;
+  color: #4a5568;
+  margin-bottom: 8px;
+}
+
+.post-body {
+  font-size: 14px;
+  color: #111827;
+  white-space: pre-wrap;
+  margin-bottom: 8px;
+}
+
+.post-link a {
+  color: #1e6fb8;
+  text-decoration: none;
+}
+
+.post-link a:hover { text-decoration: underline; }
